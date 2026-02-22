@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+    body { height: 100vh; margin: 0; align-items: center; }
+    button:hover { background: #1557b0 !important; }
+    #result { 
+        padding: 10px; 
+        border-radius: 8px; 
+        background: #fff5f5; 
+        border: 1px solid #ffcccc;
+    }
+    </style>
+</head>
+<body style="background: #f0f2f5; font-family: sans-serif; display: flex; justify-content: center; padding: 20px;">
+    <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 350px; text-align: center;">
+        <h2 style="color: #d93025;">🛡️ Rantai-AI Scanner</h2>
+        <p>Upload audio to check for scams</p>
+        <input type="file" id="audioFile" style="margin: 20px 0;">
+        <button onclick="analyze()" style="background: #1a73e8; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%;">Analyze Now</button>
+        <div id="result" style="margin-top: 20px; font-weight: bold; color: #3c4043;"></div>
+    </div>
+    <script>
+        async function analyze() {
+            const fileInput = document.getElementById('audioFile');
+            const resultDiv = document.getElementById('result');
+            if (!fileInput.files[0]) return alert("Please select a file!");
+
+            resultDiv.innerText = "Analyzing... 🔍";
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                // Change 8005 to whatever port your Python server is on
+                const response = await fetch('http://127.0.0.1:8000/analyze-audio', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.error) {
+                    resultDiv.innerHTML = `<p style="color:red">Error: ${data.error}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color:red">${data.analysis}</p>`;
+                }
+            } catch (e) {
+                resultDiv.innerText = "Error connecting to backend.";
+            }S
+        }
+    </script>
+</body>
+</html>
