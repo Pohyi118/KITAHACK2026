@@ -1,0 +1,2 @@
+$env:TEMP = "D:\pip_temp"
+$env:TMP = "D:\pip_temp"

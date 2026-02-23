@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rantai-AI Multi-Scanner Bot</title>
+    <style>
+        body { background-color: #e5ddd5; font-family: 'Segoe UI', sans-serif; height: 100vh; margin: 0; display: flex; flex-direction: column; }
+        
+        /* WhatsApp Green Header */
+        .header { background: #075e54; color: white; padding: 10px 15px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
+        .bot-avatar { width: 40px; height: 40px; background: white; border-radius: 50%; margin-right: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #075e54; }
+
+        /* Scrollable Chat Area */
+        #chatBox { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .user-msg, .bot-msg { max-width: 80%; padding: 10px; border-radius: 8px; font-size: 0.95rem; line-height: 1.4; box-shadow: 0 1px 1px rgba(0,0,0,0.1); white-space: pre-wrap; }
+        .user-msg { align-self: flex-end; background: #dcf8c6; border-top-right-radius: 0; }
+        .bot-msg { align-self: flex-start; background: white; border-top-left-radius: 0; }
+
+        /* Media & Button Styles */
+        .evidence-img { max-width: 100%; border-radius: 5px; margin-top: 10px; border: 1px solid #ddd; cursor: pointer; }
+        .report-btn { background: #075e54; color: white; border: none; padding: 8px 12px; border-radius: 5px; font-size: 0.8rem; cursor: pointer; margin-top: 10px; width: 100%; font-weight: bold; }
+        .report-btn:hover { background: #128c7e; }
+        
+        /* Bottom Input Bar */
+        .input-bar { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; }
+        #urlInput { flex: 1; padding: 12px; border-radius: 25px; border: none; outline: none; font-size: 1rem; }
+        .icon-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #51585c; }
+        .send-btn { background: #25d366; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="bot-avatar">🛡️</div>
+    <div>
+        <div style="font-weight: bold;">Rantai-AI Bot</div>
+        <div style="font-size: 0.75rem;">Online • URL | Audio | APK Scanner</div>
+    </div>
+</div>
+
+<div id="chatBox">
+    <div class="bot-msg">Selamat datang ke Rantai-AI. 
+Sila taip pautan (URL) atau gunakan ikon 📎 untuk menghantar fail Audio (.mp3) atau APK (.apk) untuk dianalisis.</div>
+</div>
+
+<div class="input-bar">
+    <button class="icon-btn" title="Lampirkan Fail" onclick="document.getElementById('fileInput').click()">📎</button>
+    <input type="file" id="fileInput" style="display:none" onchange="handleFileUpload(this)">
+    
+    <input type="text" id="urlInput" placeholder="Taip pautan di sini..." onkeypress="if(event.key==='Enter') scanUrl()">
+    <button class="send-btn" onclick="scanUrl()">➤</button>
+</div>
+
+<script>
+    const BASE_URL = 'http://127.0.0.1:8080';
+
+    function addMessage(text, isUser = false, imageUrl = null, data = null) {
+        const chatBox = document.getElementById('chatBox');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = isUser ? 'user-msg' : 'bot-msg';
+        
+        let content = `<div>${text}</div>`;
+        
+        if (imageUrl) {
+            const timestampedUrl = `${BASE_URL}${imageUrl}`;
+            content += `<img src="${timestampedUrl}" class="evidence-img" onclick="window.open('${timestampedUrl}')">`;
+        }
+
+        // Tambah butang laporan jika data wujud
+        if (data && !isUser) {
+            const encodedData = btoa(JSON.stringify(data));
+            content += `<button class="report-btn" onclick="downloadReport('${encodedData}')">📄 Muat Turun Laporan Forensik</button>`;
+        }
+        
+        msgDiv.innerHTML = content;
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function downloadReport(encodedData) {
+        const data = JSON.parse(atob(encodedData));
+        const reportContent = `
+RANTAI-AI FORENSIC REPORT
+=========================
+Tarikh: ${new Date().toLocaleString()}
+Status Risiko: ${data.risk_score || data.risk_level || "Analisis Selesai"}
+Ringkasan: ${data.summary || data.analysis_ms || "Tiada ringkasan disediakan."}
+
+Butiran Ancaman:
+${JSON.stringify(data.captured_threats || data.suspicious_permissions || [], null, 2)}
+
+Syor Keselamatan:
+Jangan dedahkan maklumat peribadi atau memasang fail ini jika terdapat amaran risiko.
+        `;
+        
+        const blob = new Blob([reportContent], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Rantai-AI_Report_${Date.now()}.txt`;
+        link.click();
+    }
+
+    async function scanUrl() {
+        const input = document.getElementById('urlInput');
+        const url = input.value;
+        if (!url) return;
+
+        addMessage(url, true);
+        input.value = '';
+        addMessage("Menganalisis pautan... Sila tunggu sebentar. 🔍");
+
+        try {
+            const response = await fetch(`${BASE_URL}/analyze-url?url=${encodeURIComponent(url)}`, { method: 'POST' });
+            const data = await response.json();
+            addMessage(`<b>Hasil Analisis URL:</b><br>${data.summary}`, false, data.image_url, data);
+        } catch (e) { addMessage("Ralat: Gagal menghubungi server."); }
+    }
+
+    function handleFileUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+        if (file.name.endsWith('.apk')) scanApk(file);
+        else if (file.name.endsWith('.mp3') || file.name.endsWith('.wav')) scanAudio(file);
+        else addMessage("Sila hantar fail .mp3 atau .apk sahaja.", false);
+        input.value = ''; // Reset input
+    }
+
+    async function scanAudio(file) {
+        addMessage(`Menghantar audio: ${file.name} 🎙️`, true);
+        addMessage("Menganalisis suara... Mencari tanda-tanda klon AI atau penipuan.");
+        const formData = new FormData(); formData.append('file', file);
+        try {
+            const res = await fetch(`${BASE_URL}/analyze-audio`, { method: 'POST', body: formData });
+            const data = await res.json();
+            addMessage(`<b>Analisis Suara:</b><br>${data.analysis_ms || data.summary || data.analysis_en}`, false, null, data);
+        } catch (e) { addMessage("Ralat menganalisis audio."); }
+    }
+
+    async function scanApk(file) {
+        addMessage(`Menghantar APK: ${file.name} 📦`, true);
+        addMessage("Menjalankan imbasan sandbox untuk kebenaran berbahaya...");
+        const formData = new FormData(); formData.append('file', file);
+        try {
+            const res = await fetch(`${BASE_URL}/analyze-apk`, { method: 'POST', body: formData });
+            const data = await res.json();
+            addMessage(`<b>Hasil Sandbox APK (Risiko: ${data.risk_level}):</b><br>${data.threat_summary || data.summary}`, false, null, data);
+        } catch (e) { addMessage("Ralat menganalisis APK."); }
+    }
+</script>
+</body>
+</html>
